@@ -1,88 +1,128 @@
-# Database Adapter
+# Hapiio Database Adapter
 
 A Go package to abstract database operations and allow for interaction with various types of databases.
 
-## Supported Databases
+## Features
 
-- MongoDB
-- MySQL
-- PostgreSQL
+- Unified interface for multiple database types
+- Support for MongoDB
+- Support for SQL databases (MySQL and PostgreSQL)
+- CRUD operations (Create, Read, Update, Delete)
+- Transaction support
+- Batch insert and update operations
+- Raw query execution
 
-## Getting Started
+## Installation
 
-These instructions will get you a copy of the project up and running on your local machine.
-
-### Prerequisites
-
-- Go (1.16+)
-- MongoDB/SQL Database running and accessible
-
-### Installing
-
-1. Clone the db-adapter repository into your project:
-
-   ```sh
-    go get github.com/hapiio/db-adapter
-    ```
-
-2. Import db-adapter in your Go files:
+To install the library, use the following command:
 
 ```sh
-import "github.com/yourusername/db-adapter/dbadapter"
+ go get github.com/hapiio/db-adaptor
 ```
 
-### Usage
+## Usage
 
-Here's a quick example of how to use the database adapter with a MongoDB database:
+### Initializing an Adapter
 
 ```go
-package main
-
 import (
-    "context"
-    "log"
-    "github.com/hapiio/db-adapter"
+    "github.com/hapiio/db-adapter/db"
 )
 
-func main() {
-    ctx := context.Background()
-    
-    mongoAdapter := dbadapter.NewMongoDBAdapter()
-    if err := mongoAdapter.Connect(ctx, "your-mongodb-connection-string"); err != nil {
-        log.Fatal(err)
-    }
-    defer mongoAdapter.Close()
-
-    // Now you can use mongoAdapter to interact with your MongoDB database.
+// For MongoDB
+config := db.Config{
+    Type:             "mongodb",
+    ConnectionString: "mongodb://localhost:27017",
 }
 
+// For MySQL
+config := db.Config{
+    Type:             "mysql",
+    ConnectionString: "user:password@tcp(localhost:3306)/dbname",
+    MaxOpenConns:     10,
+    MaxIdleConns:     5,
+}
+
+// For PostgreSQL
+config := db.Config{
+    Type:             "postgres",
+    ConnectionString: "postgres://user:password@localhost:5432/dbname?sslmode=disable",
+    MaxOpenConns:     10,
+    MaxIdleConns:     5,
+}
+
+adapter, err := db.NewAdapter(config)
+if err != nil {
+    // Handle error
+}
+defer adapter.Close()
 ```
 
-And here's an example with an SQL database:
+### Basic Operations
 
 ```go
-package main
+ctx := context.Background()
 
-import (
-    "context"
-    "database/sql"
-    "log"
-    "github.com/hapiio/db-adapter"
-    _ "github.com/go-sql-driver/mysql"
+// Insert
+err := adapter.Insert(ctx, "users", map[string]interface{}{
+    "name": "John Doe",
+    "age":  30,
+})
+
+// Find
+results, err := adapter.Find(ctx, "users", map[string]interface{}{"name": "John Doe"}, 10, 0)
+
+// Update
+err := adapter.Update(ctx, "users", 
+    map[string]interface{}{"age": 31}, 
+    map[string]interface{}{"name": "John Doe"},
 )
 
-func main() {
-    ctx := context.Background()
+// Delete
+err := adapter.Delete(ctx, "users", map[string]interface{}{"name": "John Doe"})
+```
 
-    sqlDB, err := sql.Open("mysql", "your-dsn")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer sqlDB.Close()
+### Transactions
 
-    sqlAdapter := dbadapter.NewSQLAdapter(sqlDB)
-    // Now you can use sqlAdapter to interact with your SQL database.
+```go
+ctx := context.Background()
+tx, err := adapter.BeginTransaction(ctx)
+if err != nil {
+    // Handle error
+}
+
+// Perform operations within the transaction
+
+err = tx.Commit()
+if err != nil {
+    // Handle error
 }
 ```
 
-Replace `your-mongodb-connection-string` and `your-dsn` with your actual database connection strings.
+### Raw Queries (SQL only)
+
+```go
+ctx := context.Background()
+rows, err := adapter.QueryRaw(ctx, "SELECT * FROM users WHERE age > ?", 30)
+if err != nil {
+    // Handle error
+}
+defer rows.Close()
+
+// Process the rows
+```
+
+## Testing
+
+```sh
+docker-compose up --build
+go test ./...
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
